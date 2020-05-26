@@ -26,6 +26,7 @@ public class HttpResponse extends Action<HttpResponse> implements HttpMessage<Ht
     private Headers headers;
     private Cookies cookies;
     private ConnectionOptions connectionOptions;
+    private Session session;
 
     /**
      * Static builder to create a response.
@@ -487,6 +488,15 @@ public class HttpResponse extends Action<HttpResponse> implements HttpMessage<Ht
         return connectionOptions;
     }
 
+    public Session getSession() {
+        return session;
+    }
+
+    public HttpResponse withSession(Session session) {
+        this.session = session;
+        return this;
+    }
+
     @Override
     @JsonIgnore
     public Type getType() {
@@ -502,7 +512,8 @@ public class HttpResponse extends Action<HttpResponse> implements HttpMessage<Ht
             .withHeaders(headers != null ? headers.clone() : null)
             .withCookies(cookies != null ? cookies.clone() : null)
             .withDelay(getDelay())
-            .withConnectionOptions(connectionOptions);
+            .withConnectionOptions(connectionOptions)
+            .withSession(session);
     }
 
     public HttpResponse update(HttpResponse replaceResponse) {
@@ -523,6 +534,9 @@ public class HttpResponse extends Action<HttpResponse> implements HttpMessage<Ht
         }
         if (replaceResponse.getConnectionOptions() != null) {
             withConnectionOptions(replaceResponse.getConnectionOptions());
+        }
+        if (replaceResponse.getSession() != null) {
+            withSession(replaceResponse.getSession());
         }
         return this;
     }

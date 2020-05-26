@@ -11,6 +11,8 @@ import org.mockserver.metrics.Metrics;
 import org.mockserver.model.Action;
 import org.mockserver.model.HttpObjectCallback;
 import org.mockserver.model.HttpRequest;
+import org.mockserver.model.Session;
+import org.mockserver.model.SessionEntry;
 import org.mockserver.scheduler.Scheduler;
 import org.mockserver.ui.MockServerMatcherNotifier;
 import org.slf4j.event.Level;
@@ -28,22 +30,28 @@ import static org.mockserver.metrics.Metrics.Name.*;
  * @author jamesdbloom
  */
 public class MockServerMatcher extends MockServerMatcherNotifier {
-
+    
     final CircularPriorityQueue<String, HttpRequestMatcher> httpRequestMatchers = new CircularPriorityQueue<>(
         maxExpectations(),
         HttpRequestMatcher.class,
         EXPECTATION_PRIORITY_COMPARATOR,
         httpRequestMatcher -> httpRequestMatcher.getExpectation().getId()
     );
+    private final Session mockServerSession;
     private final MockServerLogger mockServerLogger;
     private WebSocketClientRegistry webSocketClientRegistry;
     private MatcherBuilder matcherBuilder;
 
     public MockServerMatcher(MockServerLogger mockServerLogger, Scheduler scheduler, WebSocketClientRegistry webSocketClientRegistry) {
+        this(mockServerLogger, scheduler, webSocketClientRegistry, new Session());
+    }
+    
+    public MockServerMatcher(MockServerLogger mockServerLogger, Scheduler scheduler, WebSocketClientRegistry webSocketClientRegistry, Session mockServerSession) {
         super(scheduler);
         this.matcherBuilder = new MatcherBuilder(mockServerLogger);
         this.mockServerLogger = mockServerLogger;
         this.webSocketClientRegistry = webSocketClientRegistry;
+        this.mockServerSession = mockServerSession;
     }
 
     public Expectation add(Expectation expectation, Cause cause) {
@@ -144,6 +152,9 @@ public class MockServerMatcher extends MockServerMatcherNotifier {
 
     public void reset(Cause cause) {
         new ArrayList<>(httpRequestMatchers).forEach(httpRequestMatcher -> removeHttpRequestMatcher(httpRequestMatcher, cause, false));
+        synchronized (mockServerSession) {
+            mockServerSession.getMap().clear();    
+        }
         Metrics.clearActionMetrics();
         notifyListeners(this, cause);
     }
@@ -154,11 +165,13 @@ public class MockServerMatcher extends MockServerMatcherNotifier {
 
     public Expectation firstMatchingExpectation(HttpRequest httpRequest) {
         Expectation matchingExpectation = null;
+        httpRequest = readFromSession(httpRequest);
         for (HttpRequestMatcher httpRequestMatcher : httpRequestMatchers.toSortedList()) {
             boolean remainingMatchesDecremented = false;
             if (httpRequestMatcher.matches(new MatchDifference(httpRequest), httpRequest)) {
                 matchingExpectation = httpRequestMatcher.getExpectation();
                 httpRequestMatcher.setResponseInProgress(true);
+                writeToSession(matchingExpectation);
                 if (matchingExpectation.decrementRemainingMatches()) {
                     remainingMatchesDecremented = true;
                 }
@@ -208,6 +221,37 @@ public class MockServerMatcher extends MockServerMatcherNotifier {
             }
         }
         return expectation;
+    }
+    
+    private HttpRequest readFromSession(HttpRequest request) {
+        if (request == null) {
+            return null;
+        }
+        synchronized (mockServerSession) {
+            if (mockServerSession.isEmpty() && (request.getSession() == null || request.getSession().isEmpty())) {
+                return request;
+            }
+            return request.clone().withSession(mockServerSession.clone());         
+        }
+    }
+    
+    private void writeToSession(Expectation matchedExpectation) {
+        if (matchedExpectation == null || matchedExpectation.getHttpResponse() == null) {
+            return;
+        }
+        Session sessionEntries = matchedExpectation.getHttpResponse().getSession();
+        if (sessionEntries == null) {
+            return;
+        }
+        synchronized (mockServerSession) {
+            if (sessionEntries.isEmpty()) { //if response had explicit empty session map it tells us to clear all entries
+                mockServerSession.getMap().clear();
+            } else {
+                for (SessionEntry e : sessionEntries.getEntries()) { //else - merge the response with the existing session map
+                    mockServerSession.withEntry(e);
+                }
+            }
+        }
     }
 
     private void removeHttpRequestMatcher(HttpRequestMatcher httpRequestMatcher) {

@@ -1,5 +1,7 @@
 package org.mockserver.matchers;
 
+import javafx.util.Pair;
+import org.json.JSONException;
 import org.junit.Test;
 import org.mockserver.file.FileReader;
 import org.mockserver.logging.MockServerLogger;
@@ -7,9 +9,11 @@ import org.mockserver.mock.Expectation;
 import org.mockserver.model.HttpRequest;
 import org.mockserver.model.OpenAPIDefinition;
 import org.mockserver.uuid.UUIDService;
-
+import org.skyscreamer.jsonassert.JSONAssert;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Stack;
 import java.util.UUID;
-
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.core.Is.is;
@@ -6317,7 +6321,7 @@ public class HttpRequestsPropertiesMatcherTest {
     }
 
     @Test
-    public void shouldNotMatchRequestWithHeaderMismatchInOpenAPI() {
+    public void shouldNotMatchRequestWithHeaderMismatchInOpenAPI() throws JSONException {
         // given
         HttpRequestsPropertiesMatcher httpRequestsPropertiesMatcher = new HttpRequestsPropertiesMatcher(mockServerLogger);
         httpRequestsPropertiesMatcher.update(new Expectation(
@@ -6340,7 +6344,7 @@ public class HttpRequestsPropertiesMatcherTest {
         assertThat(context.getDifferences(PATH), nullValue());
         assertThat(context.getDifferences(QUERY_PARAMETERS), nullValue());
         assertThat(context.getDifferences(COOKIES), nullValue());
-        assertThat(context.getDifferences(HEADERS), containsInAnyOrder("  multimap subset match failed expected:" + NEW_LINE +
+        jsonCompareObject(context.getDifferences(HEADERS).toString(), "  multimap subset match failed expected:" + NEW_LINE +
             NEW_LINE +
             "    {" + NEW_LINE +
             "      \"keyMatchStyle\" : \"MATCHING_KEY\"," + NEW_LINE +
@@ -6361,7 +6365,7 @@ public class HttpRequestsPropertiesMatcherTest {
             NEW_LINE +
             "   failed because:" + NEW_LINE +
             NEW_LINE +
-            "    none is not a subset" + NEW_LINE));
+            "    none is not a subset" + NEW_LINE);
         assertThat(context.getDifferences(BODY), nullValue());
         assertThat(context.getDifferences(SSL_MATCHES), nullValue());
         assertThat(context.getDifferences(KEEP_ALIVE), nullValue());
@@ -6370,7 +6374,7 @@ public class HttpRequestsPropertiesMatcherTest {
     }
 
     @Test
-    public void shouldNotMatchRequestWithHeaderAndQueryParameterMismatchInOpenAPI() {
+    public void shouldNotMatchRequestWithHeaderAndQueryParameterMismatchInOpenAPI() throws JSONException {
         // given
         HttpRequestsPropertiesMatcher httpRequestsPropertiesMatcher = new HttpRequestsPropertiesMatcher(mockServerLogger);
         httpRequestsPropertiesMatcher.update(new Expectation(
@@ -6393,7 +6397,8 @@ public class HttpRequestsPropertiesMatcherTest {
         assertThat(context.getDifferences(PATH), nullValue());
         assertThat(context.getDifferences(QUERY_PARAMETERS), nullValue());
         assertThat(context.getDifferences(COOKIES), nullValue());
-        assertThat(context.getDifferences(HEADERS), containsInAnyOrder("  multimap subset match failed expected:" + NEW_LINE +
+
+        jsonCompareObject(context.getDifferences(HEADERS).toString(), "  multimap subset match failed expected:" + NEW_LINE +
             NEW_LINE +
             "    {" + NEW_LINE +
             "      \"keyMatchStyle\" : \"MATCHING_KEY\"," + NEW_LINE +
@@ -6414,7 +6419,8 @@ public class HttpRequestsPropertiesMatcherTest {
             NEW_LINE +
             "   failed because:" + NEW_LINE +
             NEW_LINE +
-            "    none is not a subset" + NEW_LINE));
+            "    none is not a subset" + NEW_LINE);
+
         assertThat(context.getDifferences(BODY), nullValue());
         assertThat(context.getDifferences(SSL_MATCHES), nullValue());
         assertThat(context.getDifferences(KEEP_ALIVE), nullValue());
@@ -6501,7 +6507,7 @@ public class HttpRequestsPropertiesMatcherTest {
     }
 
     @Test
-    public void shouldNotMatchRequestWithBodyMismatchWithContentTypeInOpenAPI() {
+    public void shouldNotMatchRequestWithBodyMismatchWithContentTypeInOpenAPI() throws JSONException {
         // given
         HttpRequestsPropertiesMatcher httpRequestsPropertiesMatcher = new HttpRequestsPropertiesMatcher(mockServerLogger);
         httpRequestsPropertiesMatcher.update(new Expectation(
@@ -6562,7 +6568,7 @@ public class HttpRequestsPropertiesMatcherTest {
             "    2 errors:" + NEW_LINE +
             "     - field: \"/id\" for schema: \"/properties/id\" has error: \"instance type (string) does not match any allowed primitive type (allowed: [\"integer\"])\"" + NEW_LINE +
             "     - schema: \"/properties/id\" has error: \"format attribute \"int64\" not supported\"" + NEW_LINE;
-        assertThat(context.getDifferences(BODY), containsInAnyOrder(bodyError, bodyError));
+        jsonCompareObject(context.getDifferences(BODY).toString(), bodyError);
         assertThat(context.getDifferences(SSL_MATCHES), nullValue());
         assertThat(context.getDifferences(KEEP_ALIVE), nullValue());
         assertThat(context.getDifferences(OPERATION), nullValue());
@@ -6570,7 +6576,7 @@ public class HttpRequestsPropertiesMatcherTest {
     }
 
     @Test
-    public void shouldNotMatchRequestWithBodyMismatchWithContentTypeInOpenAPIWithoutOperationID() {
+    public void shouldNotMatchRequestWithBodyMismatchWithContentTypeInOpenAPIWithoutOperationID() throws JSONException {
         // given
         HttpRequestsPropertiesMatcher httpRequestsPropertiesMatcher = new HttpRequestsPropertiesMatcher(mockServerLogger);
         httpRequestsPropertiesMatcher.update(new Expectation(
@@ -6637,7 +6643,8 @@ public class HttpRequestsPropertiesMatcherTest {
             "    2 errors:" + NEW_LINE +
             "     - field: \"/id\" for schema: \"/properties/id\" has error: \"instance type (string) does not match any allowed primitive type (allowed: [\"integer\"])\"" + NEW_LINE +
             "     - schema: \"/properties/id\" has error: \"format attribute \"int64\" not supported\"" + NEW_LINE;
-        assertThat(context.getDifferences(BODY), containsInAnyOrder(bodyError, bodyError));
+
+        jsonCompareObject(context.getDifferences(BODY).toString(), bodyError);
         assertThat(context.getDifferences(SSL_MATCHES), nullValue());
         assertThat(context.getDifferences(KEEP_ALIVE), nullValue());
         assertThat(context.getDifferences(OPERATION), nullValue());
@@ -6645,7 +6652,7 @@ public class HttpRequestsPropertiesMatcherTest {
     }
 
     @Test
-    public void shouldNotMatchRequestInOpenAPIWithBodyMismatch() {
+    public void shouldNotMatchRequestInOpenAPIWithBodyMismatch() throws JSONException {
         // given
         HttpRequestsPropertiesMatcher httpRequestsPropertiesMatcher = new HttpRequestsPropertiesMatcher(mockServerLogger);
         httpRequestsPropertiesMatcher.update(new Expectation(
@@ -6705,7 +6712,13 @@ public class HttpRequestsPropertiesMatcherTest {
             "    2 errors:" + NEW_LINE +
             "     - field: \"/id\" for schema: \"/properties/id\" has error: \"instance type (string) does not match any allowed primitive type (allowed: [\"integer\"])\"" + NEW_LINE +
             "     - schema: \"/properties/id\" has error: \"format attribute \"int64\" not supported\"" + NEW_LINE;
-        assertThat(context.getDifferences(BODY), containsInAnyOrder(schemaValidationError, schemaValidationError));
+
+        List<String> schemaValidationErrorList = stringJsonCombinationToJson(context.getDifferences(BODY).toString());
+        List<String> contextList = stringJsonCombinationToJson(schemaValidationError);
+
+        for (int i = 0 ; i < contextList.size() ; i++){
+            JSONAssert.assertEquals(schemaValidationErrorList.get(i), contextList.get(i), false);
+        }
         assertThat(context.getDifferences(SSL_MATCHES), nullValue());
         assertThat(context.getDifferences(KEEP_ALIVE), nullValue());
         assertThat(context.getDifferences(OPERATION), nullValue());
@@ -6726,4 +6739,35 @@ public class HttpRequestsPropertiesMatcherTest {
         assertThat(context.getDifferences(OPENAPI), nullValue());
     }
 
+    private void jsonCompareObject(String a, String b) throws JSONException {
+        List<String> schemaValidationErrorList = stringJsonCombinationToJson(a);
+        List<String> contextList = stringJsonCombinationToJson(b);
+
+        for (int i = 0 ; i < contextList.size() ; i++){
+            JSONAssert.assertEquals(schemaValidationErrorList.get(i), contextList.get(i), false);
+        }
+    }
+
+    private List<String> stringJsonCombinationToJson(String str){
+        Stack<Pair> stack = new Stack<>();
+        List<String> ret = new ArrayList<>();
+        for(int i = 0 ; i < str.length() ; i++){
+            char c = str.charAt(i);
+            if (i != 0 && stack.size() == 1 && c == '}'){
+                int startpoint = (int)stack.pop().getValue();
+                int endpoint = i;
+                ret.add(str.substring(startpoint, endpoint + 1));
+                continue;
+            }
+            if (c == '{'){
+                stack.push(new Pair('{', i));
+                continue;
+            }
+            if (c == '}'){
+                stack.pop();
+                continue;
+            }
+        }
+        return ret;
+    }
 }

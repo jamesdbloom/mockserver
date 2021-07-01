@@ -7,8 +7,7 @@ import org.springframework.test.context.MergedContextConfiguration;
 import org.springframework.test.context.support.TestPropertySourceUtils;
 import org.springframework.util.SocketUtils;
 
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 import java.util.regex.Pattern;
 
 public class MockServerPropertyCustomizer implements ContextCustomizer {
@@ -33,5 +32,22 @@ public class MockServerPropertyCustomizer implements ContextCustomizer {
 
             TestPropertySourceUtils.addInlinedPropertiesToEnvironment(context, replacement);
         });
+    }
+
+    @Override
+    public boolean equals(Object other) {
+        if (this == other) {
+            return true;
+        }
+        if (other == null || getClass() != other.getClass()) {
+            return false;
+        }
+        MockServerPropertyCustomizer that = (MockServerPropertyCustomizer) other;
+        return Objects.equals(properties, that.properties);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(properties);
     }
 }
